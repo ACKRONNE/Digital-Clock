@@ -1,0 +1,411 @@
+MPASM  4.02 Released                               RELOJ2.ASM   12-9-2022  15:00:44         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001         LIST P=16F84
+                      00002 
+                      00003 ;----------------------------------------------------------------------------------------------
+                      00004 ;Reloj Digital 
+                      00005 ;Realizado por Ing. Biagio Cante
+                      00006 
+                      00007 ;---------------------------------------------------------------------------------------------- 
+                      00008 
+                      00009 ; Declaracion de Variables 
+                      00010 
+  00000012            00011 AUX             EQU     12H     
+  00000002            00012 PCL             EQU     02H
+  00000011            00013 SEG             EQU     11H
+  00000006            00014 PB              EQU     06H
+  00000006            00015 TRISB   EQU     06H
+  00000003            00016 STATUS  EQU     03H
+  00000001            00017 OP              EQU     01H
+  0000000B            00018 INTCON  EQU     0BH
+  00000010            00019 VAR             EQU     10H
+  00000001            00020 TMR0    EQU     01H
+  00000015            00021 MIN             EQU     15H
+  00000016            00022 MIN10   EQU     16H
+  00000017            00023 SEG10   EQU     17H
+  00000018            00024 RETA    EQU     18H
+  00000005            00025 PA              EQU     05H
+  00000005            00026 TRISA   EQU     05H
+  00000020            00027 HORA    EQU     20H
+  00000019            00028 HORA10  EQU     19H
+  00000021            00029 VAL             EQU     21H
+  00000022            00030 VAL1    EQU     22H
+  00000023            00031 TX              EQU     23H
+  00000024            00032 R11             EQU     24H
+  00000025            00033 VAR2    EQU     25H
+                      00034 
+                      00035 ;--------------------------------------------------------------------------------------------------
+                      00036 
+0000                  00037         ORG     0                                                       ;Vector de RESET
+0000   2880           00038         GOTO    START                                   ;Salto a la linea 80 para iniciar el programa pp
+                            al
+                      00039 ;
+                      00040 
+0080                  00041                 ORG     80                                              ;Inicio en la linea 80
+0080   1683           00042 START   BSF             STATUS,5                        ;Cambio al banco de memoria 1                   
+0081   0186           00043                 CLRF    TRISB                           ;Se declara el puerto B como salida
+0082   3003           00044                 MOVLW   B'00000011'                     ;Se mueve el valor de 00000011 a W
+0083   0085           00045                 MOVWF   TRISA                           ;De puerto PA, seran de entrada (PA0,PA1)y los o
+                            tros salida             
+0084   3007           00046                 MOVLW   B'00000111'                     ;Se mueve el valor de 00000111 a W              
+0085   0081           00047                 MOVWF   OP                                      ;Se asigna el divisor a 256 y se dice qu
+                            e el TMR0 trabaja como temporizador de pulsos internos
+0086   1283           00048                 BCF             STATUS,5                        ;Cambio al banco de memoria 0   
+0087   30A0           00049                 MOVLW   B'10100000'                     ;Se mueve el valor de 10100000 a W
+0088   008B           00050                 MOVWF   INTCON                          ;Se habilitan todas la interrupciones y en espec
+MPASM  4.02 Released                               RELOJ2.ASM   12-9-2022  15:00:44         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                            ial la de TMR0
+0089   0191           00051                 CLRF    SEG                                     ;Se borra la variable SEG
+008A   0190           00052                 CLRF    VAR                                     ;Se borra la variable VAR
+008B   3064           00053                 MOVLW   D'100'                          ;Se asigna el valor de 100 a W
+008C   0090           00054                 MOVWF   VAR                                     ;Se le da valor de 100 a VAR
+008D   30D9           00055                 MOVLW   D'217'                          ;se asigna el valor de 217 a W
+008E   0081           00056                 MOVWF   TMR0                            ;Se le da valor de 217 a TMR0
+008F   0197           00057                 CLRF    SEG10                           ;Se borra SEG10
+0090   0195           00058                 CLRF    MIN                                     ;Se borra MIN
+0091   0196           00059                 CLRF    MIN10                           ;Se Borra MIN10
+0092   01A0           00060                 CLRF    HORA                            ;Se borra HORA
+0093   0199           00061                 CLRF    HORA10                          ;Se borra HORA10
+0094   1185           00062                 BCF             PA,3                            ;Se apaga el led en PA3
+0095   1021           00063                 BCF             VAL,0                           ;Se borra el bit cero de la variable VAL
+                             que usaremos como Flag
+                      00064 
+                      00065 
+0096                  00066 INICIO
+0096   1C05           00067                 BTFSS   PA,0                            ;Se valida si PA0 esta precionado (boton que aju
+                            stara los minutos) 
+0097   28B1           00068                 GOTO    MINU                            ;Se va la etiqueta MINU para ajustar los minutos
+                             
+0098   1021           00069                 BCF             VAL,0                           ;De no estar presionado la Flag (bit 0 d
+                            e VAL) se pone en 0
+0099   1C85           00070                 BTFSS   PA,1                            ;Se valida si PA1 esta prsionado  (boton que aju
+                            stara las horas) 
+009A   28C1           00071                 GOTO    HOR                                     ;Se va la etiqueta HOR para ajustar las 
+                            horas 
+009B   1022           00072                 BCF             VAL1,0                          ;De no estar presionado la Flag (bit 0 d
+                            e VAL) se pone en 0
+009C   0815           00073 Z1              MOVF    MIN,0                           ;Se mueve el valor de las unidades de minutos a 
+                            W
+009D   0086           00074                 MOVWF   PB                                      ;Se mueve el valor de W a PB
+009E   1606           00075                 BSF             PB,4                            ;Se activa el primer display
+009F   20D7           00076                 CALL    RETARDO                         ;Se llama a la rutina de Retardo
+00A0   1206           00077                 BCF             PB,4                            ;Se apaga el primer display
+00A1   0816           00078                 MOVF    MIN10,0                         ;Se mueve el valor de las decenas de minutos a W
+00A2   0086           00079                 MOVWF   PB                                      ;Se mueve el valor de W a PB
+00A3   1686           00080                 BSF             PB,5                            ;Se activa el segundo display
+00A4   20D7           00081                 CALL    RETARDO                         ;Se llama a la rutina de Retardo
+00A5   1286           00082                 BCF             PB,5                            ;Se apaga el segundo display    
+00A6   0820           00083                 MOVF    HORA,0                          ;Se mueve el valor de las unidades de horas a W
+00A7   0086           00084                 MOVWF   PB                                      ;Se mueve el valor de W a PB            
+                                            
+00A8   1706           00085                 BSF             PB,6                            ;Se activa el tercer display
+00A9   20D7           00086                 CALL    RETARDO                         ;Se llama a la rutina de Retardo
+00AA   1306           00087                 BCF             PB,6                            ;Se apaga el tercer display
+00AB   0819           00088                 MOVF    HORA10,0                        ;Se mueve el valor de las decenas  de horas a W
+00AC   0086           00089                 MOVWF   PB                                      ;Se mueve el valor de W a PB            
+                                            
+00AD   1786           00090                 BSF             PB,7                            ;Se activa el cuarto display
+00AE   20D7           00091                 CALL    RETARDO                         ;Se llama a la rutina de Retardo
+00AF   1386           00092                 BCF             PB,7                            ;Se apaga el cuarto display
+MPASM  4.02 Released                               RELOJ2.ASM   12-9-2022  15:00:44         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00B0   2896           00093                 GOTO    INICIO                          ;Se vuelve a inicio
+                      00094 
+00B1   1821           00095 MINU    BTFSC   VAL,0                           ;Se valida la etiqueta VAL0 para saber si sigue presiona
+                            do el boton 
+00B2   28C0           00096                 GOTO    M1                                      ;Como esta presionado el boton y ya se i
+                            ncremento la variable no se hace mas nada 
+00B3   1421           00097                 BSF             VAL,0                           ;Como es apenas presionado cambiamos la 
+                            Flag a 1 (VAL0) 
+00B4   0A95           00098                 INCF    MIN,1                           ;Se incrementan las unidades de minutos
+00B5   0815           00099                 MOVF    MIN,0                           ;Se mueve el valor de las unidades de minutos a 
+                            W
+00B6   3C0A           00100                 SUBLW   D'10'                           ;Se le resta el valor de 10 a lo de W
+00B7   1D03           00101                 BTFSS   STATUS,2                        ;Se valida si la resta dio 0
+00B8   28C0           00102                 GOTO    M1                                      ;Como la resta no dio 0, se va a M1 para
+                             continuar
+00B9   0195           00103                 CLRF    MIN                                     ;Como la resta dio cero quiere decir que
+                             es igual a 10 y se borra a 0
+00BA   0A96           00104                 INCF    MIN10,1                         ;Se incrementan las decenas de Minutos 
+00BB   0816           00105                 MOVF    MIN10,0                         ;Se mueve las decenas de minutos a W
+00BC   3C06           00106                 SUBLW   D'6'                            ;Se les resta el valor de 6 a W
+00BD   1D03           00107                 BTFSS   STATUS,2                        ;Se valida si la resta dio 0
+00BE   28C0           00108                 GOTO    M1                                      ;Como la resta no dio 0, se va a M1 para
+                             continuar
+00BF   0196           00109                 CLRF    MIN10                           ;Como la resta dio cero quiere decir que es igua
+                            l a 6 y se borra a 0 
+00C0   289C           00110 M1              GOTO    Z1                                      ;Se vuelve a la etuiqueta Z1
+                      00111 
+00C1   1822           00112 HOR             BTFSC   VAL1,0                          ;Se valida la etiqueta VAL0 para saber si sigue 
+                            presionado el boton                     
+00C2   28D6           00113                 GOTO    H1                                      ;Como esta presionado el boton y ya se i
+                            ncremento la variable no se hace mas nada                               
+00C3   1422           00114                 BSF             VAL1,0                          ;Como es apenas presionado cambiamos la 
+                            Flag a 1 (VAL0)                 
+00C4   0AA0           00115                 INCF    HORA,1                          ;Se incrementan las unidades de Horas           
+                                    
+00C5   0820           00116                 MOVF    HORA,0                          ;Se mueve el valor de las unidades de horas a W 
+                                    
+00C6   3C0A           00117                 SUBLW   D'10'                           ;Se le resta el valor de 10 a lo de W
+00C7   1D03           00118                 BTFSS   STATUS,2                        ;Se valida si la resta dio 0            
+00C8   28CC           00119                 GOTO    H2                                      ;Como la resta no dio 0, se va a H2 para
+                             continuar              
+00C9   01A0           00120                 CLRF    HORA                            ;Como la resta dio cero quiere decir que es igua
+                            l a 10 y se borra a 0                                   
+00CA   0A99           00121                 INCF    HORA10,1                        ;Se incrementan las decenas de Horas            
+00CB   28D6           00122                 GOTO    H1                                      ;Se va a H1 para continuar
+00CC   0820           00123 H2              MOVF    HORA,0                          ;Se mueve las unidades de hora a W
+00CD   3C04           00124                 SUBLW   D'4'                            ;Se le resta 4 a W
+00CE   1D03           00125                 BTFSS   STATUS,2                        ;Se valida si la resta dio 0
+00CF   28D6           00126                 GOTO    H1                                      ;Como no dio cero 0 se va a H1 para cont
+                            inuar
+00D0   0819           00127                 MOVF    HORA10,0                        ;Se mueve las decenas de horas a W
+00D1   3C02           00128                 SUBLW   D'2'                            ;Se le resta 2 a W
+00D2   1D03           00129                 BTFSS   STATUS,2                        ;Se valida si la resta dio 0
+MPASM  4.02 Released                               RELOJ2.ASM   12-9-2022  15:00:44         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00D3   28D6           00130                 GOTO    H1                                      ;Como la resta no dio 0 se va a H1 para 
+                            continuar
+00D4   01A0           00131                 CLRF    HORA                            ;Si la resta dio cero se borra las unidades de l
+                            as horas
+00D5   0199           00132                 CLRF    HORA10                          ;Se borran las decenas de las horas
+00D6   289C           00133 H1              GOTO    Z1                                      ;Se vuelve a la etiqueta Z1
+                      00134 
+                      00135 
+00D7   30FF           00136 RETARDO MOVLW   H'FF'                           ;Se mueve el valor de 255 a W
+00D8   0098           00137                 MOVWF   RETA                            ;Se le da el valor de 255 a W
+00D9   0B98           00138 B1              DECFSZ  RETA,1                          ;Se tiene RETA=RETA-1 y se pregunta si es cero
+00DA   28D9           00139                 GOTO    B1                                      ;Si la resta no dio 0 se va a B1
+00DB   0008           00140                 RETURN                                          ;La resta dio cero y se vuelve a donde f
+                            ue llamada la rutina
+                      00141 
+                      00142         
+0004                  00143                 ORG     4                                               ;Vector de la interrupcion
+0004   0092           00144                 MOVWF   AUX                                     ;Se mueve el valor que tenga W para alma
+                            cenarlo en AUX
+0005   0B90           00145                 DECFSZ  VAR,1                           ;Se decrementa VAR y se valida si es 0 el result
+                            ado
+0006   2833           00146                 GOTO    A1                                      ;Como el resultado de la resta no es 0 s
+                            e va a A1
+0007   1D05           00147                 BTFSS   PA,2                            ;Si el resultado de la resta es 0, se valida se 
+                            el LED que esta en PA2 esta encendido
+0008   280B           00148                 GOTO    UNO                                     ;Como el LED esta apagado se va a la eti
+                            queta UNO
+0009   1105           00149                 BCF             PA,2                            ;Se apaga el LED
+000A   280C           00150                 GOTO    CERO                            ;Se salta a la etiqueta CERO
+000B   1505           00151 UNO             BSF             PA,2                            ;Se enciende el LED
+000C   0A91           00152 CERO    INCF    SEG,1                           ;Se incrementa los segundos
+000D   0811           00153                 MOVF    SEG,0                           ;Se mueve las unidades de segundo a W
+000E   3C3C           00154                 SUBLW   D'60'                           ;Se le resta 60 a W
+000F   1D03           00155                 BTFSS   STATUS,2                        ;Se pregunta si la resta dio 0
+0010   2831           00156                 GOTO    A2                                      ;Se la resta no dio 0 se va a A2
+0011   0191           00157                 CLRF    SEG                                     ;Como la resta dio 0 se borran los segun
+                            do      
+0012   0A95           00158                 INCF    MIN,1                           ;Se incrementan las unidades de minutos 
+0013   0815           00159                 MOVF    MIN,0                           ;Se mueven las unidades de minutos a W
+0014   3C0A           00160                 SUBLW   D'10'                           ;Se resta el valor de 10 a W
+0015   1D03           00161                 BTFSS   STATUS,2                        ;Se valida si la resta dio 0
+0016   2830           00162                 GOTO    A3                                      ;Como la resta no dio 0 se va a A2
+0017   0195           00163                 CLRF    MIN                                     ;Se la resta dio 0 se borran las unidade
+                            s de minutos
+0018   0A96           00164                 INCF    MIN10,1                         ;Se incrementan las decenas de minutos
+0019   0816           00165                 MOVF    MIN10,0                         ;Se mueve el valor de las decenas de minutos a W
+001A   3C06           00166                 SUBLW   D'6'                            ;Se le resta 6 a W
+001B   1D03           00167                 BTFSS   STATUS,2                        ;Se valida si la resta dio 0
+001C   2830           00168                 GOTO    A3                                      ;Si la resta no dio 0 se va a A2
+001D   0196           00169                 CLRF    MIN10                           ;La resta dio 0 y se borran las decenas de minut
+                            os 
+001E   0AA0           00170                 INCF    HORA,1                          ;Se incrementan las unidades de las horas 
+001F   0820           00171                 MOVF    HORA,0                          ;Se mueve las unidades de las horas a W
+MPASM  4.02 Released                               RELOJ2.ASM   12-9-2022  15:00:44         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0020   3C0A           00172                 SUBLW   D'10'                           ;Se le resta 10 a W
+0021   1D03           00173                 BTFSS   STATUS,2                        ;Se valida si la resta dio 0
+0022   2826           00174                 GOTO    A5                                      ;Como la resta no dio 0 se va a A5
+0023   01A0           00175                 CLRF    HORA                            ;Como la resta dio 0 se borran las unidades de h
+                            oras
+0024   0A99           00176                 INCF    HORA10,1                        ;Se incrementan las decenas de horas 
+0025   2830           00177                 GOTO    A3                                      ;Se salta a la etiqueta A2
+0026   0820           00178 A5              MOVF    HORA,0                          ;Se mueve las unidades de horas a W
+0027   3C04           00179                 SUBLW   D'4'                            ;Se resta el valor de 4 a W
+0028   1D03           00180                 BTFSS   STATUS,2                        ;Se valida si la resta dio 0
+0029   2830           00181                 GOTO    A3                                      ;Como la resta no dio 0 se va a A2
+002A   0819           00182                 MOVF    HORA10,0                        ;Si la resta dio 0 se mueve el valor de las dece
+                            nas de horas a W
+002B   3C02           00183                 SUBLW   D'2'                            ;Se le resta 2 a W
+002C   1D03           00184                 BTFSS   STATUS,2                        ;Se valida si la resta dio 0
+002D   2830           00185                 GOTO    A3                                      ;Si la resta no da 0 se salta a la etiqu
+                            eta A2
+002E   01A0           00186                 CLRF    HORA                            ;Si la resta dio 0 se borran las uniadades de la
+                            s horas 
+002F   0199           00187                 CLRF    HORA10                          ;Se borran las decenas de las horas 
+0030   2038           00188 A3              CALL    TR                                      ;Va a transmitir el dato por el puerto s
+                            erie
+0031   3064           00189 A2              MOVLW   D'100'                          ;Se le asigna el valor de 100 a W
+0032   0090           00190                 MOVWF   VAR                                     ;Se le asigna el valor de 100 a VAR
+0033   30D9           00191 A1              MOVLW   D'217'                          ;Se le asigna el valor de 217 a W
+0034   0081           00192                 MOVWF   TMR0                            ;Se le asigna el valor de 217 a TMR0
+0035   110B           00193                 BCF             INTCON,2                        ;Se borra la Flag de la interrupcion de 
+                            TMR0                            
+0036   0812           00194                 MOVF    AUX,0                           ;Se devuelve el valor de la variable AUX a W
+0037   0009           00195                 RETFIE                                          ;Se sale de la interrupcion
+                      00196 
+0038   3020           00197 TR              MOVLW   ' '
+0039   2049           00198                 CALL    TRANS
+003A   0819           00199                 MOVF    HORA10,0                        ;HORA10 ---> W
+003B   2061           00200                 CALL    CONVERT                         ;Llama a convert para cambiarlo a ASCII
+003C   2049           00201                 CALL    TRANS                           ;Llama a Trans para enviarlo al puerto serial PC
+003D   0820           00202                 MOVF    HORA,0                          ;HORA ---> W
+003E   2061           00203                 CALL    CONVERT                         ;Llama a convert para cambiarlo a ASCII
+003F   2049           00204                 CALL    TRANS                           ;Llama a Trans para enviarlo al puerto serial PC
+0040   303A           00205                 MOVLW   ':'
+0041   2049           00206                 CALL    TRANS
+0042   0816           00207                 MOVF    MIN10,0                         ;MIN10 ---> W
+0043   2061           00208                 CALL    CONVERT                         ;Llama a convert para cambiarlo a ASCII
+0044   2049           00209                 CALL    TRANS                           ;Llama a Trans para enviarlo al puerto serial PC
+0045   0815           00210                 MOVF    MIN,0                           ;MIN ---> W
+0046   2061           00211                 CALL    CONVERT                         ;Llama a convert para cambiarlo a ASCII
+0047   2049           00212                 CALL    TRANS                           ;Llama a Trans para enviarlo al puerto serial PC
+0048   0008           00213                 RETURN
+                      00214 
+                      00215 
+0049   0064           00216 TRANS   CLRWDT                  ;BORRA EL WATHDOG
+004A   00A3           00217                 MOVWF   TX              ;MUEVE EL DATO A TRANSMITIR A LA VARIABLE TX
+004B   3008           00218         MOVLW   .08             ;MUEVE EL VALOR DE 8 A W
+MPASM  4.02 Released                               RELOJ2.ASM   12-9-2022  15:00:44         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+004C   00A4           00219                 MOVWF   R11             ;MUEVE EL VALOR DE 8 AL REGISTRO R11
+004D   1205           00220                 BCF             PA,4    ;PONE A 0 EL VALOR DE PA,1 (BIT DE INICIO)
+004E   205A           00221                 CALL    DELAY1  ;LLAMA A LA RUTINA DE RETARDO
+004F   1205           00222 XNEXT   BCF             PA,4    ;PONE A 0 EL PUERTO PA,1
+0050   1003           00223                 BCF             STATUS,0;PONE A CERO LA BANDERA DE ACARREO EN STATUS
+0051   0CA3           00224         RRF     TX,1    ;ROTA EL VALOR DEL TX UN PASO A LA DERECHA
+0052   1803           00225                 BTFSC   STATUS,0;CHEQUEA EL VALOR DE ACARREO
+0053   1605           00226                 BSF             PA,4    ;PONE EN 1 EL BIT PA,1
+0054   205A           00227                 CALL    DELAY1  ;LLAMA A LA RUTINA DE RETARDO
+0055   0BA4           00228         DECFSZ  R11,1   ;DECREMENTA LA VARIABLE R11 Y CHEQUEA QUE NO DIO CERO
+0056   284F           00229                 GOTO    XNEXT   ;LLAMA A LA ETIQUETA XNEXT PARA TRANSMITIR OTRO BIT
+0057   1605           00230                 BSF             PA,4    ;PONE EN 1 PA,0
+0058   205A           00231                 CALL    DELAY1  ;LLAMA A LA RUTINA DE DELAY1
+0059   0008           00232                 RETURN                  ;TERMINA LA SUBRUTINA
+                      00233 
+005A   30A6           00234 DELAY1  MOVLW   .166            ;CARGA EL NUMERO 166 EN W       
+005B   00A5           00235                 MOVWF   VAR2            ;CARGA EL VALOR EN VAR2
+005C   0000           00236 REDO    NOP
+005D   0000           00237                 NOP
+005E   0BA5           00238                 DECFSZ  VAR2,1          ;DECREMENTA Y VERIFICA QUE NO SEA CERO
+005F   285C           00239                 GOTO    REDO    
+0060   3400           00240                 RETLW   0       
+                      00241         
+0061   0782           00242 CONVERT ADDWF   PCL,1           ;SE SUMA LA PCL PARA QUE DEVUELVA EL VALOR CORRESPONDINTE EN ASCII
+0062   3430           00243                 RETLW   '0'                     ;VALOR EN ASCII PARA EL 0
+0063   3431           00244                 RETLW   '1'                     ;VALOR EN ASCII PARA EL 0
+0064   3432           00245                 RETLW   '2'                     ;VALOR EN ASCII PARA EL 0
+0065   3433           00246                 RETLW   '3'                     ;VALOR EN ASCII PARA EL 0
+0066   3434           00247                 RETLW   '4'                     ;VALOR EN ASCII PARA EL 0
+0067   3435           00248                 RETLW   '5'                     ;VALOR EN ASCII PARA EL 0
+0068   3436           00249                 RETLW   '6'                     ;VALOR EN ASCII PARA EL 0
+0069   3437           00250                 RETLW   '7'                     ;VALOR EN ASCII PARA EL 0
+006A   3438           00251                 RETLW   '8'                     ;VALOR EN ASCII PARA EL 0
+006B   3439           00252                 RETLW   '9'                     ;VALOR EN ASCII PARA EL 0
+                      00253 
+                      00254                 END
+MPASM  4.02 Released                               RELOJ2.ASM   12-9-2022  15:00:44         PAGE  7
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+A1                                00000033
+A2                                00000031
+A3                                00000030
+A5                                00000026
+AUX                               00000012
+B1                                000000D9
+CERO                              0000000C
+CONVERT                           00000061
+DELAY1                            0000005A
+H1                                000000D6
+H2                                000000CC
+HOR                               000000C1
+HORA                              00000020
+HORA10                            00000019
+INICIO                            00000096
+INTCON                            0000000B
+M1                                000000C0
+MIN                               00000015
+MIN10                             00000016
+MINU                              000000B1
+OP                                00000001
+PA                                00000005
+PB                                00000006
+PCL                               00000002
+R11                               00000024
+REDO                              0000005C
+RETA                              00000018
+RETARDO                           000000D7
+SEG                               00000011
+SEG10                             00000017
+START                             00000080
+STATUS                            00000003
+TMR0                              00000001
+TR                                00000038
+TRANS                             00000049
+TRISA                             00000005
+TRISB                             00000006
+TX                                00000023
+UNO                               0000000B
+VAL                               00000021
+VAL1                              00000022
+VAR                               00000010
+VAR2                              00000025
+XNEXT                             0000004F
+Z1                                0000009C
+__16F84A                          00000001
+MPASM  4.02 Released                               RELOJ2.ASM   12-9-2022  15:00:44         PAGE  8
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+
+0000 : X---XXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0040 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXX---- ----------------
+0080 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+00C0 : XXXXXXXXXXXXXXXX XXXXXXXXXXXX---- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:   197
+Program Memory Words Free:   827
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     0 reported,     0 suppressed
+
+
